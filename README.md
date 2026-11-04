@@ -1,143 +1,99 @@
-# RodOS 0.1.2 · sistema operativo educativo tipo MS-DOS en C++
+# RodOS 0.1.3 — sistema educativo tipo MS-DOS en C++
 
-**RodOS no utiliza Linux ni FreeDOS.** Es un kernel independiente C++17 freestanding
-para x86 de 32 bits, con consola de comandos DOS, VGA, PS/2, UART, PIT, RTC,
-sistema de archivos RAM y acceso FAT16 a la unidad que lo arrancó a través de
-la BIOS (INT 13h Extensions). La pequeña parte de ensamblador es necesaria para
-arrancar y pasar entre modo protegido y modo real durante el acceso al disco.
+RodOS es un proyecto independiente (no usa Linux, FreeDOS ni MS-DOS) con dos rutas de arranque:
 
-## Cambios desde RodOS 0.1.0 y 0.1.1
+| Arranque | Ejecución | Acceso a disco |
+| --- | --- | --- |
+| **BIOS/CSM** x86 | Kernel propio C++17 de 32 bits en modo protegido; VGA/PS2/RTC | BIOS INT 13h EDD + controlador FAT16 propio (`kernel/`) |
+| **UEFI x64** | Aplicación **PE32+ EFI** nativa en C++17; consola DOS | `EFI_SIMPLE_FILE_SYSTEM_PROTOCOL` y `EFI_FILE_PROTOCOL` (`uefi/`) |
 
-- `C:` conserva los comandos existentes, pero **es temporal** (RAM).
-- `D:` es una **partición FAT16 de datos de 16 MiB**, separada del área ISO.
-  Los archivos de `D:` están destinados a persistir al reiniciar.
-- `DIR`, `TYPE`, `ECHO >`, `ECHO >>`, `EDIT`, `DEL`, `REN`, `COPY` y `CALL`
-  pueden operar sobre archivos de texto de `D:`; `COPY` permite C:↔D:.
-- Se añadió el comando `USBINFO` y una imagen ISO9660 + MBR para Rufus **DD**.
-- El kernel lee/escribe sectores por una rutina BIOS EDD controlada (sin escribir
-  fuera de la partición FAT16). Esto depende de la compatibilidad del firmware.
+> **Importante:** la aplicación UEFI todavía no inicia el kernel BIOS de 32 bits. Ejecuta un entorno DOS-style separado mientras los servicios de arranque UEFI permanecen activos. Es una transición hacia un kernel UEFI de 64 bits, no una migración ya completada.
 
-**Limitación de D:** esta versión solo administra archivos 8.3 de texto en el
-**directorio raíz**, con un máximo de 4095 bytes por archivo. Puede listar
-subdirectorios FAT16 existentes, pero no crearlos, recorrerlos ni modificarlos.
-Los archivos binarios no están admitidos por el shell de texto. `C:` continúa
-admitiendo carpetas y archivos temporales en RAM.
+## Novedades 0.1.3
 
-## Usar con Rufus: USB real (solo BIOS legado o UEFI-CSM)
+- `EFI/BOOT/BOOTX64.EFI`: arranque UEFI x64 desde una **partición ESP FAT16** de 8 MiB.
+- Partición **D: FAT16** de 16 MiB dedicada a datos, separada de ESP y del arranque BIOS.
+- Tanto el kernel BIOS como la aplicación UEFI pueden leer y escribir archivos de texto en `D:`.
+- El shell UEFI localiza `D:` únicamente si contiene el archivo marcador de sólo lectura `RODOS.DAT` con firma `RODOS-DATA-V1`, para evitar escribir en otras particiones FAT del equipo.
+- `PERSISTTEST` en UEFI aumenta `PERSIS.TXT`, fuerza `Flush` y lo relee. Después de `REBOOT`, `TYPE PERSIS.TXT` permite verificar que el contador se conservó.
+- Scripts y pruebas verifican el formato MBR/ISO9660, FAT16 ESP, PE32+ EFI con relocaciones, mutaciones FAT16 simuladas y el intérprete UEFI mediante servicios EFI simulados.
 
-1. Haz copia de seguridad de la memoria USB: **Rufus borrará su contenido**.
-2. Abre Rufus y selecciona `RodOS-0.1.2-USB-FAT16.iso`.
-3. Cuando Rufus lo permita, selecciona **modo DD** (escritura byte a byte):
-   **NO** modo ISO (extracción de archivos). No modifiques las particiones.
-4. Arranca el equipo desde USB con **Legacy BIOS/CSM** habilitado.
-5. Si arranca, usa `USBINFO`, `D:`, `DIR`, `TYPE LEEME.TXT`, crea una nota y
-   reinicia para comprobar la persistencia. En Windows, FAT16 se puede leer
-   como una partición de datos.
+**Imagen única para USB (Rufus modo DD):** `build/RodOS-0.1.3-BIOS-UEFI-USB.iso` (aprox. 26 MiB). No utilizar extracción ISO, pues se perderían las particiones.
 
-**Advertencias importantes:** esta imagen **no arranca en UEFI puro** ni con
-Secure Boot. Requiere que el firmware presente la USB como disco BIOS con
-INT 13h extensions (EDD). Algunos equipos modernos no tienen CSM o bloquean
-las escrituras BIOS; en ellos no funcionará o `D:` no estará disponible.
-La ISO9660 en sí es de solo lectura: **solo se modifica la partición FAT16**.
-No contiene instalador ni ejecuta programas `.EXE` o `.COM` de MS-DOS.
-**No confíes datos importantes a esta versión experimental.**
+## Compilar en Ubuntu x86_64
 
-## Ejemplo de comandos
-
-```text
-VER
-HELP
-DIR
-TYPE README.TXT
-USBINFO
-D:
-DIR
-TYPE LEEME.TXT
-ECHO Hola desde RodOS > NOTA.TXT
-TYPE NOTA.TXT
-ECHO Una segunda linea >> NOTA.TXT
-EDIT MIARCH.TXT
-REN NOTA.TXT NUEVA.TXT
-COPY NUEVA.TXT C:\RESP.TXT
-C:
-TYPE RESP.TXT
-COPY RESP.TXT D:\COPIA.TXT
-D:
-DEL COPIA.TXT
-REBOOT
-D:
-TYPE NUEVA.TXT
-```
-
-## Probar en QEMU sin USB físico
-
-Instala QEMU en Ubuntu o Debian:
+Requiere `make`, GCC con compilación `-m32` freestanding, GNU binutils, Python 3, **Clang** y **lld-link**.
 
 ```bash
-sudo apt install qemu-system-x86 python3
-```
-
-Desde la carpeta del proyecto:
-
-```bash
-python3 tools/run.py --terminal
-```
-
-Se crea una copia de la ISO llamada `build/RodOS-0.1.2-VM-persistente.img`,
-que QEMU usa como disco IDE grabable. Los cambios en `D:` quedan en esta copia
-virtual, **no en la ISO original**. Para recrearla desde cero (borra SOLO los
-archivos de prueba de esa copia de máquina virtual):
-
-```bash
-python3 tools/run.py --fresh --terminal
-```
-
-Para la interfaz VGA, omite `--terminal`. `iniciar.sh` o `iniciar.bat` son
-lanzadores equivalentes. No se ha podido ejecutar QEMU en el entorno de
-preparación; el arranque real **sigue pendiente de comprobarse**.
-
-## Compilar los fuentes
-
-En Linux x86-64 (Ubuntu/Debian) instala `g++`, `binutils`, `make` y `python3`:
-
-```bash
-sudo apt install build-essential binutils python3
+sudo apt install build-essential binutils clang lld python3 make
 make -j2
 make test
 ```
 
-`make` construye `build/RodOS-0.1.2-USB-FAT16.iso`; `make test` ejecuta las
-pruebas de RAMFS y FAT16 en el anfitrión con sanitizadores. Estas pruebas
-validan la lógica C++ y la estructura de la ISO, **no** el puente de BIOS ni
-el funcionamiento en hardware USB. `build/rodos.img` y `boot/boot.S` se
-conservan como alternativa de disquete de la base original; no tienen soporte
-persistente real por sí solos y **no** deben usarse en Rufus para este objetivo.
+`make usb` crea la imagen en `build/` y `build/BOOTX64.EFI`; `make test` prueba RAMFS, FAT16, la estructura EFI y el intérprete UEFI con servicios EFI simulados. **No prueba físicamente que UEFI arranque o escriba en el USB.**
 
-Para revisar integridad:
+## Probar primero en QEMU con UEFI/OVMF
+
+Instala el emulador y firmware:
 
 ```bash
-cd build
-sha256sum -c RodOS-0.1.2-USB-FAT16.iso.sha256
+sudo apt install qemu-system-x86 ovmf
+python3 tools/run_uefi.py --fresh
 ```
 
-## Componentes principales
+El script trabaja exclusivamente con una **copia** `build/RodOS-0.1.3-VM-UEFI-persistente.img` y crea un archivo de variables OVMF independiente. Para reutilizar los archivos guardados, ejecuta sin `--fresh`.
 
-- `boot/usb_mbr.S`: MBR cargador BIOS con lecturas EDD del kernel en LBA256.
-- `boot/biosdisk.S`: puente controlado protected mode → real mode → BIOS.
-- `boot/entry.S`: entrada de CPU de 32 bits, BSS, interrupciones.
-- `kernel/block.*`: lecturas/escrituras BIOS de un sector.
-- `kernel/fat16.*`: volumen FAT16, raíz, lectura y escritura, FAT duplicadas.
-- `kernel/fs.*`: sistema de archivos temporal C: (original RodOS).
-- `kernel/shell.*`: intérprete DOS, editor, BAT y selección de unidad.
-- `tools/build_usb_iso.py`: genera ISO9660 mínima + MBR + FAT16 de datos.
-- `tests/fat16_test.cpp`: pruebas FAT16 sobre copia virtual de la ISO.
-- `tests/fs_test.cpp`: pruebas originales de RAMFS.
+En la consola UEFI de RodOS (distribución de teclado proporcionada por el firmware):
 
-## Validación
+```text
+HELP
+D:\>DIR
+D:\>TYPE LEEME.TXT
+D:\>ECHO Mi primera nota > NOTA.TXT
+D:\>TYPE NOTA.TXT
+D:\>PERSISTTEST
+D:\>REBOOT
+D:\>TYPE PERSIS.TXT
+D:\>PERSISTTEST
+```
 
-Lee `docs/VALIDACION-0.1.2.md`. Las pruebas C++ se completaron en Linux x86-64,
-pero **no se afirma** haber arrancado QEMU ni un USB real. La escritura USB
-es experimental y requiere validación de firmware BIOS/CSM.
+El primer `PERSISTTEST` debería guardar `1`; tras reiniciar, `TYPE PERSIS.TXT` debería mostrar `1`, y el siguiente `PERSISTTEST` subir a `2`. Esto comprueba persistencia **solo si se observa realmente en QEMU/OVMF o hardware**. La ISO original **no cambia**.
 
-Licencia del código original y de los cambios: MIT (`LICENSE`).
-RodOS es independiente de Microsoft y no ofrece compatibilidad binaria con MS-DOS.
+Para comprobar BIOS/CSM:
+
+```bash
+python3 tools/run.py --fresh
+```
+
+En modo BIOS también existe la unidad temporal `C:` RAM, directorios y comandos BAT; la ruta UEFI se centra en D: raíz 8.3.
+
+## Instalar en una memoria USB de pruebas con Rufus
+
+1. **Respaldar todo el contenido**; Rufus sobrescribe la memoria elegida.
+2. Seleccionar `RodOS-0.1.3-BIOS-UEFI-USB.iso` y grabar en **modo DD**.
+3. Probar primero **UEFI x64 con Secure Boot desactivado**: `BOOTX64.EFI` no está firmado.
+4. Seleccionar el dispositivo USB en el menú de arranque del firmware.
+5. Ejecutar `PERSISTTEST`, reiniciar, `TYPE PERSIS.TXT`. No guardar documentos importantes.
+
+En BIOS Legacy/CSM debe conservarse la compatibilidad con la ruta anterior, pero no se ha verificado aquí en una máquina virtual.
+
+### Límites
+
+- En UEFI, el firmware proporciona `SimpleFileSystem`; no se desarrolló un nuevo controlador xHCI/NVMe/USB. Algunos firmwares no exponen todas las particiones de una memoria USB.
+- UEFI ofrece consola, `HELP`, `VER`, `DIR`, `TYPE`, `ECHO >`, `ECHO >>`, `EDIT` (una línea), `COPY`, `REN`, `DEL`, `PERSISTTEST`, `REBOOT`, `EXIT` y `USBINFO`; por ahora solo `D:` raíz FAT16, nombres 8.3, texto de hasta 4095 bytes.
+- BIOS preserva los comandos previos y la unidad `C:` temporal.
+- Imagen para USB **DD**, no CD/DVD UEFI ni instalador en disco duro; `Secure Boot` no es compatible.
+- FAT16 carece de journal. **No retirar el USB ni cortar la electricidad mientras se escribe.** El guardado no está garantizado ante cortes de energía.
+- El PE32+ EFI, FAT16 y la escritura simulada han pasado pruebas estructurales, pero **no se ha probado ejecución real de UEFI**, ni `PERSISTTEST` en QEMU/OVMF o USB físico en este entorno.
+
+## Estructura
+
+- `boot/`: MBR BIOS, salto a kernel de 32 bits, puente BIOS EDD.
+- `kernel/`: código C++17 BIOS, FAT16 por sectores y RAMFS.
+- `uefi/`: aplicación UEFI x64 freestanding C++ y definiciones ABI EFI.
+- `tools/build_usb_iso.py`: crea imagen MBR + ESP + FAT16 de datos + zona ISO9660.
+- `tools/run_uefi.py`: ejecuta QEMU/OVMF contra copia persistente de la imagen.
+- `tests/`: pruebas de FAT16, RAMFS y validación de imagen UEFI.
+- `docs/VALIDACION-0.1.3.md`: evidencia verificable y límites.
+
+**Licencia MIT** para las fuentes de RodOS (`LICENSE`). RodOS no ejecuta programas `.COM` ni `.EXE` de MS-DOS.

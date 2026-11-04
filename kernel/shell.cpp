@@ -99,7 +99,7 @@ void Shell::init() {
     disk_.init(); batchEcho_=true; onUsb_=false; usb_.init();
     disk_.mkdir("DOCS");
     disk_.write("README.TXT",
-        "Bienvenido a RodOS 0.1.2.\n"
+        "Bienvenido a RodOS 0.1.3.\n"
         "Este PC arranco un kernel propio, escrito en C++ sin biblioteca estandar.\n"
         "La pequena parte de ensamblador configura la CPU y las interrupciones.\n"
         "\nPruebe: MD TRABAJO, CD TRABAJO, ECHO Hola > NOTA.TXT, TYPE NOTA.TXT.\n"
@@ -230,11 +230,11 @@ void Shell::execute(char* raw,int depth) {
     if (argc<0) { console::line("Error: demasiados argumentos o comillas sin cerrar."); return; }
     if (command(start,"HELP")||command(start,"AYUDA")) { console::print(helpText); return; }
     if (command(start,"CLS")||command(start,"CLEAR")) { console::clear(); return; }
-    if (command(start,"VER")) { console::line("RodOS version 0.1.2 | kernel C++17 x86 de 32 bits"); return; }
+    if (command(start,"VER")) { console::line("RodOS version 0.1.3 | kernel C++17 x86 de 32 bits"); return; }
     if (command(start,"ABOUT")) {
         console::line("RodOS: un sistema educativo independiente, inspirado en la consola DOS.");
         console::line("BIOS -> cargador propio -> modo protegido -> kernel C++ -> shell.");
-        console::line("VGA, PS/2, UART, PIT, RTC, RAMFS y FAT16 USB via BIOS."); return;
+        console::line("VGA, PS/2, UART, PIT, RTC, RAMFS y FAT16 USB via BIOS (UEFI x64 via BOOTX64.EFI)."); return;
     }
     if (command(start,"DIR")) { if (argc<=1) list(argc?args[0]:""); else arity(argc,1,"DIR [ruta]"); return; }
     if (command(start,"CD..")||command(start,"CD\\")||command(start,"CD/")) {

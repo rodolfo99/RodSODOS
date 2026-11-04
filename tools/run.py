@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start RodOS 0.1.2 in a BIOS QEMU VM with a persistent *copy* of the USB image."""
+"""Start RodOS 0.1.3 in a BIOS QEMU VM with a persistent *copy* of the USB image."""
 import argparse
 from pathlib import Path
 import shutil
@@ -11,8 +11,8 @@ parser.add_argument('--qemu', help='Ruta del ejecutable qemu-system-i386')
 parser.add_argument('--fresh', action='store_true', help='Recrea la copia virtual y borra sus cambios anteriores')
 args = parser.parse_args()
 root = Path(__file__).resolve().parent.parent
-iso = root/'build/RodOS-0.1.2-USB-FAT16.iso'
-drive = root/'build/RodOS-0.1.2-VM-persistente.img'
+iso = root/'build/RodOS-0.1.3-BIOS-UEFI-USB.iso'
+drive = root/'build/RodOS-0.1.3-VM-BIOS-persistente.img'
 if not iso.is_file():
     raise SystemExit('No existe la ISO. Ejecute make usb primero.')
 qemu = args.qemu or shutil.which('qemu-system-i386') or shutil.which('qemu-system-x86_64')

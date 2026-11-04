@@ -24,7 +24,7 @@ namespace console {
 void init() { clear(); }
 void clear() {
     for (int i=80; i<24*80; ++i) vga[i]=u16(attribute<<8|' ');
-    fixedRow(0," RodOS 0.1.2  |  C++ / x86  |  CONSOLA DE COMANDOS",0x1f);
+    fixedRow(0," RodOS 0.1.3  |  C++ / x86  |  CONSOLA DE COMANDOS",0x1f);
     status(" HELP: ayuda   |   Flechas: historial   |   C: RAM temporal  |  D: USB FAT16 persistente");
     row=1; col=0; cursor();
     const char* clearSequence="\033[2J\033[H";
@@ -55,7 +55,7 @@ void number(u32 n) {
     while (count) put(buffer[--count]);
 }
 void banner() {
-    line(); color(0x0b); line("  RodOS 0.1.2"); color(7);
+    line(); color(0x0b); line("  RodOS 0.1.3"); color(7);
     line("  Sistema operativo educativo en C++ | PC x86 de 32 bits");
     line("  Arranque propio. Consola inspirada en MS-DOS.");
     line();

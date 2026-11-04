@@ -17,7 +17,7 @@ bool read(u32 lba,u8* dst) {
     std::memcpy(dst,storage.data()+u32(lba)*512,512);++readCount;return true;
 }
 bool write(u32 lba,const u8* src) {
-    if (lba<4096 || u32(lba)>storage.size()/512-1) return false; // hard write guard
+    if (lba<20480 || lba>=20480u+32768u) return false; // only the data partition
     std::memcpy(storage.data()+u32(lba)*512,src,512);++writeCount;return true;
 }
 }
@@ -26,10 +26,10 @@ int main(int argc,char** argv) {
     std::ifstream in(argv[1],std::ios::binary);
     assert(in.good());
     storage.assign(std::istreambuf_iterator<char>(in),{});
-    assert(storage.size()==18874368u);
-    const std::vector<u8> immutable(storage.begin(),storage.begin()+4096*512);
+    assert(storage.size()==(20480u+32768u)*512u);
+    const std::vector<u8> immutable(storage.begin(),storage.begin()+20480*512);
     auto volume = new fat::Volume;
-    assert(volume->init() && volume->mounted() && volume->partitionStart()==4096u);
+    assert(volume->init() && volume->mounted() && volume->partitionStart()==20480u);
     assert(volume->clusterCount()>4000 && volume->rootEntries()==512);
     char text[fs::FileCapacity];u32 size=0;
     assert(volume->read("LEEME.TXT",text,sizeof(text),size)==fs::Error::Ok);
